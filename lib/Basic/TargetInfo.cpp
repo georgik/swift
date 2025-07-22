@@ -152,11 +152,21 @@ void printTripleInfo(const CompilerInvocation &invocation,
       std::make_shared<clang::TargetOptions>();
   TO->Triple = triple.str();
   clang::TargetInfo *TI = clang::TargetInfo::CreateTargetInfo(DE, TO);
-  out << "    \"pointerWidthInBits\": "
-      << TI->getPointerWidth(clang::LangAS::Default) << ",\n";
-  out << "    \"pointerWidthInBytes\": "
-      << TI->getPointerWidth(clang::LangAS::Default) / TI->getCharWidth()
-      << ",\n";
+  
+  unsigned pointerWidth = 32; // Default for most embedded targets
+  unsigned charWidth = 8;     // Default char width
+  
+  if (TI) {
+    pointerWidth = TI->getPointerWidth(clang::LangAS::Default);
+    charWidth = TI->getCharWidth();
+  } else if (triple.getArch() == llvm::Triple::xtensa) {
+    // Xtensa is a 32-bit architecture
+    pointerWidth = 32;
+    charWidth = 8;
+  }
+  
+  out << "    \"pointerWidthInBits\": " << pointerWidth << ",\n";
+  out << "    \"pointerWidthInBytes\": " << pointerWidth / charWidth << ",\n";
 
   if (runtimeVersion) {
     out << "    \"swiftRuntimeCompatibilityVersion\": \"";
