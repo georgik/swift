@@ -183,6 +183,24 @@ static void configureWasm32(IRGenModule &IGM, const llvm::Triple &triple,
     SWIFT_ABI_WASM32_LEAST_VALID_POINTER;
 }
 
+/// Configures target-specific information for Xtensa platforms.
+static void configureXtensa(IRGenModule &IGM, const llvm::Triple &triple,
+                           SwiftTargetInfo &target) {
+  // Xtensa is a 32-bit architecture
+  setToMask(target.PointerSpareBits, 32,
+            SWIFT_ABI_DEFAULT_SWIFT_SPARE_BITS_MASK);
+  setToMask(target.ObjCPointerReservedBits, 32,
+            SWIFT_ABI_DEFAULT_OBJC_RESERVED_BITS_MASK);
+  setToMask(target.IsObjCPointerBit, 32, 0U);  // No ObjC support for embedded Xtensa
+  
+  // Xtensa embedded platforms typically don't use ObjC features
+  target.ObjCUseStret = true;  // Use standard struct return
+  target.ObjCUseFPRet = false; // No floating point return optimizations
+  target.ObjCUseFP2Ret = false;
+  target.ObjCUseISAMask = false; // No ISA masking needed for embedded
+  target.ObjCHasOpaqueISAs = false;
+}
+
 /// Configure a default target.
 SwiftTargetInfo::SwiftTargetInfo(
   llvm::Triple::ObjectFormatType outputObjectFormat,
@@ -256,6 +274,10 @@ SwiftTargetInfo SwiftTargetInfo::get(IRGenModule &IGM) {
     break;
   case llvm::Triple::wasm32:
     configureWasm32(IGM, triple, target);
+    break;
+
+  case llvm::Triple::xtensa:
+    configureXtensa(IGM, triple, target);
     break;
 
   default:

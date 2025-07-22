@@ -270,6 +270,10 @@ StringRef swift::getPlatformNameForTriple(const llvm::Triple &triple) {
   case llvm::Triple::WASI:
     return "wasi";
   case llvm::Triple::UnknownOS:
+    // For embedded targets like ESP32, treat unknown OS as 'none'
+    if (triple.getArchName().starts_with("xtensa")) {
+      return "none";
+    }
     return "none";
   case llvm::Triple::UEFI:
   case llvm::Triple::LiteOS:
@@ -296,6 +300,11 @@ StringRef swift::getMajorArchitectureName(const llvm::Triple &Triple) {
     if (Triple.getArchName() == "amd64") {
       return "x86_64";
     }
+  }
+
+  // Handle Xtensa architecture for embedded targets
+  if (Triple.getArchName().starts_with("xtensa")) {
+    return "xtensa";
   }
 
   return Triple.getArchName();
