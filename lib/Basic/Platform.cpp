@@ -270,9 +270,15 @@ StringRef swift::getPlatformNameForTriple(const llvm::Triple &triple) {
   case llvm::Triple::WASI:
     return "wasi";
   case llvm::Triple::UnknownOS:
-    // For embedded targets like ESP32, treat unknown OS as 'none'
+    // For embedded targets like ESP32, distinguish between bare metal and ESP-IDF
     if (triple.getArchName().starts_with("xtensa")) {
-      return "none";
+      switch (triple.getEnvironment()) {
+      case llvm::Triple::ESPIDF:
+        return "espidf";
+      case llvm::Triple::ELF:
+      default:
+        return "none";
+      }
     }
     return "none";
   case llvm::Triple::UEFI:

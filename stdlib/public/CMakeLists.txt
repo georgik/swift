@@ -237,6 +237,19 @@ if(SWIFT_SHOULD_BUILD_EMBEDDED_STDLIB_CROSS_COMPILING)
         "avr  avr-none-none-elf    avr-none-none-elf"
       )
     endif()
+
+    if("Xtensa" IN_LIST LLVM_TARGETS_TO_BUILD OR "Xtensa" IN_LIST LLVM_EXPERIMENTAL_TARGETS_TO_BUILD)
+      list(APPEND EMBEDDED_STDLIB_TARGET_TRIPLES
+        # Bare metal targets (ELF format)
+        "xtensa  xtensa-esp32-none-elf     xtensa-esp32-none-elf"
+        "xtensa  xtensa-esp32s2-none-elf   xtensa-esp32s2-none-elf"
+        "xtensa  xtensa-esp32s3-none-elf   xtensa-esp32s3-none-elf"
+        # ESP-IDF framework targets
+        "xtensa  xtensa-esp32-espidf       xtensa-esp32-espidf"
+        "xtensa  xtensa-esp32s2-espidf     xtensa-esp32s2-espidf"
+        "xtensa  xtensa-esp32s3-espidf     xtensa-esp32s3-espidf"
+      )
+    endif()
   endif()
 endif()
 
