@@ -383,40 +383,40 @@ extension __SwiftNativeNSArrayWithContiguousStorage {
     _ body: (UnsafeBufferPointer<AnyObject>) throws -> R
   ) rethrows -> R {
     while true {
-      var buffer: UnsafeBufferPointer<AnyObject>
-      
       // If we've already got a buffer of bridged objects, just use it
       if let bridgedStorage = _heapBufferBridged {
         let bridgingBuffer = _BridgingBuffer(bridgedStorage)
-        unsafe buffer = unsafe UnsafeBufferPointer(
+        let buffer = unsafe UnsafeBufferPointer(
             start: bridgingBuffer.baseAddress, count: bridgingBuffer.count)
+        defer { _fixLifetime(self) }
+        return try unsafe body(buffer)
       }
 
       // If elements are bridged verbatim, the native buffer is all we
       // need, so return that.
-      else if let buf = unsafe _nativeStorage._withVerbatimBridgedUnsafeBuffer(
+      if let buf = unsafe _nativeStorage._withVerbatimBridgedUnsafeBuffer(
         { unsafe $0 }
       ) {
-        unsafe buffer = unsafe buf
-      }
-      else {
-        // Create buffer of bridged objects.
-        let objects = _nativeStorage._getNonVerbatimBridgingBuffer()
-        
-        // Atomically store a reference to that buffer in self.
-        if unsafe !_stdlib_atomicInitializeARCRef(
-          object: _heapBufferBridgedPtr, desired: objects.storage!) {
-
-          // Another thread won the race.  Throw out our buffer.
-          unsafe _destroyBridgedStorage(
-            unsafeDowncast(objects.storage!, to: __BridgingBufferStorage.self))
-        }
-        continue // Try again
+        defer { _fixLifetime(self) }
+        return try unsafe body(buf)
       }
       
-      defer { _fixLifetime(self) }
-      return try unsafe body(buffer)
+      // Create buffer of bridged objects.
+      let objects = _nativeStorage._getNonVerbatimBridgingBuffer()
+      
+      // Atomically store a reference to that buffer in self.
+      if unsafe _stdlib_atomicInitializeARCRef(
+        object: _heapBufferBridgedPtr, desired: objects.storage!) {
+        // We successfully stored the buffer, try again to use it
+        continue
+      }
+      
+      // Another thread won the race.  Throw out our buffer and try again.
+      unsafe _destroyBridgedStorage(
+        unsafeDowncast(objects.storage!, to: __BridgingBufferStorage.self))
     }
+    // This should never be reached, but add a fallback to satisfy the compiler
+    _internalInvariantFailure("withUnsafeBufferOfObjects should never exit the loop without returning")
   }
 
   /// Returns the number of elements in the array.
@@ -442,35 +442,34 @@ internal final class __SwiftDeferredStaticNSArray<Element>
     _ body: (UnsafeBufferPointer<AnyObject>) throws -> R
   ) rethrows -> R {
     while true {
-      var buffer: UnsafeBufferPointer<AnyObject>
-
       // If we've already got a buffer of bridged objects, just use it
       if let bridgedStorage = _heapBufferBridged {
         let bridgingBuffer = _BridgingBuffer(bridgedStorage)
-        unsafe buffer = unsafe UnsafeBufferPointer(
+        let buffer = unsafe UnsafeBufferPointer(
             start: bridgingBuffer.baseAddress, count: bridgingBuffer.count)
+        defer { _fixLifetime(self) }
+        return try unsafe body(buffer)
       }
-      else {
-        // Static read-only arrays can only contain non-verbatim bridged
-        // element types.
+      
+      // Static read-only arrays can only contain non-verbatim bridged
+      // element types.
 
-        // Create buffer of bridged objects.
-        let objects = getNonVerbatimBridgingBuffer()
+      // Create buffer of bridged objects.
+      let objects = getNonVerbatimBridgingBuffer()
 
-        // Atomically store a reference to that buffer in self.
-        if unsafe !_stdlib_atomicInitializeARCRef(
-          object: _heapBufferBridgedPtr, desired: objects.storage!) {
-
-          // Another thread won the race.  Throw out our buffer.
-          unsafe _destroyBridgedStorage(
-            unsafeDowncast(objects.storage!, to: __BridgingBufferStorage.self))
-        }
-        continue // Try again
+      // Atomically store a reference to that buffer in self.
+      if unsafe _stdlib_atomicInitializeARCRef(
+        object: _heapBufferBridgedPtr, desired: objects.storage!) {
+        // We successfully stored the buffer, try again to use it
+        continue
       }
-
-      defer { _fixLifetime(self) }
-      return try unsafe body(buffer)
+      
+      // Another thread won the race.  Throw out our buffer and try again.
+      unsafe _destroyBridgedStorage(
+        unsafeDowncast(objects.storage!, to: __BridgingBufferStorage.self))
     }
+    // This should never be reached, but add a fallback to satisfy the compiler
+    _internalInvariantFailure("withUnsafeBufferOfObjects should never exit the loop without returning")
   }
 
   internal func getNonVerbatimBridgingBuffer() -> _BridgingBuffer {
